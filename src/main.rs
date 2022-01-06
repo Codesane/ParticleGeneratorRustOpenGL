@@ -38,7 +38,7 @@ fn main() {
         height: 900,
     });
 
-    let image = image::load(Cursor::new(&include_bytes!("./star_09.png")),
+    let image = image::load(Cursor::new(&include_bytes!("./circle_05.png")),
                             image::ImageFormat::Png).unwrap().to_rgba8();
     let image_dimensions = image.dimensions();
     let image = glium::texture::RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
@@ -46,7 +46,7 @@ fn main() {
 
     implement_vertex!(Vertex, position, tex_coords);
 
-    let shape = make_quad(0.01);
+    let shape = make_quad(0.02);
     let vertex_buffer = glium::VertexBuffer::new(&display, &shape).unwrap();
     let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
 
@@ -63,7 +63,8 @@ fn main() {
         void main() {
             v_color = color;
             v_tex_coords = tex_coords;
-            gl_Position = vec4(position, 1.0, 1.0) + vec4(world_position, 1.0);
+            float scale = sqrt(pow(world_position.x, 2) + pow(world_position.y, 2));
+            gl_Position = vec4((position * scale), 1.0, 1.0) + vec4(world_position, 0.0);
         }
     "#;
 
@@ -80,7 +81,7 @@ fn main() {
 
     let program = glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None).unwrap();
 
-    let num_particles = 2000000;
+    let num_particles = 100000;
 
     let mut rng = rand::thread_rng();
     let mut per_instance = {
@@ -93,14 +94,14 @@ fn main() {
         implement_vertex!(Attr, world_position, color);
 
         let data = (0..num_particles).map(|_| {
-            let rnd = 0.5 + rng.gen::<f32>() * 0.5;
-
-            let part = 1.0/255.0;
-            let color: (f32, f32, f32, f32) = match rng.gen_range(1..4) {
-                1 => (part*252.0, part*215.0, part*3.0, 1.0),
-                2 => (part*235.0, part*64.0, part*52.0, 1.0),
-                3 => (part*235.0, part*198.0, part*52.0, 1.0),
-                _ => panic!("Nope"),
+            let color: (f32, f32, f32, f32) = match rng.gen_range(1..7) {
+                1 => (252.0/255.0, 215.0/255.0, 3.0/255.0, 1.0),
+                2 => (235.0/255.0, 64.0/255.0, 52.0/255.0, 1.0),
+                3 => (235.0/255.0, 198.0/255.0, 52.0/255.0, 1.0),
+                4 => (55.0/255.0, 235.0/255.0, 52.0/255.0, 1.0),
+                5 => (235.0/255.0, 52.0/255.0, 195.0/255.0, 1.0),
+                6 => (171.0/255.0, 52.0/255.0, 235.0/255.0, 1.0),
+                _ => panic!("Invalid random color range"),
             };
 
             Attr {
@@ -115,7 +116,8 @@ fn main() {
     let mut animation_swap_time = std::time::Instant::now();
     let mut sign: i32 = 1;
 
-
+    let mut rng = rand::thread_rng();
+    let velocity = per_instance.map().iter().map(|_| rng.gen::<f32>()).collect::<Vec<_>>();
 
     event_loop.run(move |event, _, control_flow| {
         match event {
@@ -142,31 +144,22 @@ fn main() {
 
         {
             let time = std::time::Instant::now();
-            if time - animation_swap_time > Duration::from_secs(1) {
+            if time - animation_swap_time > Duration::from_secs(3) {
                 sign = sign * -1;
                 animation_swap_time = std::time::Instant::now();
             }
 
-            let d_angle = std::f32::consts::PI * 2.0 / num_particles as f32;
+            let d_angle = (std::f32::consts::PI * 2.0) / num_particles as f32;
 
-            let mut rng = rand::thread_rng();
             let mut angle: f32 = 0.0;
-            for instance in per_instance.map().iter_mut() {
+            for (index, instance) in per_instance.map().iter_mut().enumerate() {
                 let dx = angle.cos() / 10.0;
                 let dy = angle.sin() / 10.0;
 
-                let amplitude = rng.gen::<f32>();
-                instance.world_position.0 += dx * amplitude * sign as f32;
-                instance.world_position.1 += dy * amplitude * sign as f32;
+                let v = velocity[index];
 
-                // let rnd = 0.5 + rng.gen::<f32>() * 0.5;
-                //
-                // match rng.gen_range(1..4) {
-                //     1 => instance.color = (rnd, 0.0, 0.0, 1.0),
-                //     2 => instance.color = (0.0, rnd, 0.0, 1.0),
-                //     3 => instance.color = (0.0, 0.0, rnd, 1.0),
-                //     _ => println!("Unknown"),
-                // }
+                instance.world_position.0 += dx * v * sign as f32;
+                instance.world_position.1 += dy * v * sign as f32;
 
                 angle += d_angle;
             }
@@ -182,12 +175,12 @@ fn main() {
 
             Blend {
                 color: BlendingFunction::Addition {
-                    source: LinearBlendingFactor::SourceAlpha,
-                    destination: LinearBlendingFactor::OneMinusSourceAlpha,
+                    source: LinearBlendingFactor::One,
+                    destination: LinearBlendingFactor::One,
                 },
                 alpha: BlendingFunction::Addition {
-                    source: LinearBlendingFactor::SourceAlpha,
-                    destination: LinearBlendingFactor::OneMinusSourceAlpha
+                    source: LinearBlendingFactor::One,
+                    destination: LinearBlendingFactor::One,
                 },
                 constant_value: (0.0, 0.0, 0.0, 0.0)
             }
@@ -195,7 +188,7 @@ fn main() {
 
 
         let params = glium::DrawParameters {
-            // blend,
+            blend,
             .. Default::default()
         };
 
