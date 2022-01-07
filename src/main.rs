@@ -1,8 +1,9 @@
+#![windows_subsystem = "windows"]
+
 #[macro_use]
 extern crate glium;
 
 use std::io::Cursor;
-use std::time::Duration;
 use glium::glutin::dpi::LogicalSize;
 
 use rand::Rng;
@@ -63,7 +64,7 @@ fn main() {
         void main() {
             v_color = color;
             v_tex_coords = tex_coords;
-            float scale = sqrt(pow(world_position.x, 2) + pow(world_position.y, 2));
+            float scale = max(1 - sqrt(pow(world_position.x, 2) + pow(world_position.y, 2)), 0.2);
             gl_Position = vec4((position * scale), 1.0, 1.0) + vec4(world_position, 0.0);
         }
     "#;
@@ -81,7 +82,7 @@ fn main() {
 
     let program = glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None).unwrap();
 
-    let num_particles = 100000;
+    let num_particles = 400000;
 
     let mut rng = rand::thread_rng();
     let mut per_instance = {
@@ -113,11 +114,8 @@ fn main() {
         glium::vertex::VertexBuffer::dynamic(&display, &data).unwrap()
     };
 
-    let mut animation_swap_time = std::time::Instant::now();
-    let mut sign: i32 = 1;
-
     let mut rng = rand::thread_rng();
-    let velocity = per_instance.map().iter().map(|_| rng.gen::<f32>()).collect::<Vec<_>>();
+    let velocity = per_instance.map().iter().map(|_| 0.5 + rng.gen_range(1..3) as f32).collect::<Vec<_>>();
 
     event_loop.run(move |event, _, control_flow| {
         match event {
@@ -143,23 +141,24 @@ fn main() {
         *control_flow = glutin::event_loop::ControlFlow::WaitUntil(next_frame_time);
 
         {
-            let time = std::time::Instant::now();
-            if time - animation_swap_time > Duration::from_secs(3) {
-                sign = sign * -1;
-                animation_swap_time = std::time::Instant::now();
-            }
-
             let d_angle = (std::f32::consts::PI * 2.0) / num_particles as f32;
 
             let mut angle: f32 = 0.0;
             for (index, instance) in per_instance.map().iter_mut().enumerate() {
-                let dx = angle.cos() / 10.0;
-                let dy = angle.sin() / 10.0;
+                let dx = angle.cos() / 100.0;
+                let dy = angle.sin() / 100.0;
 
                 let v = velocity[index];
 
-                instance.world_position.0 += dx * v * sign as f32;
-                instance.world_position.1 += dy * v * sign as f32;
+                instance.world_position.0 += dx * v;
+                instance.world_position.1 += dy * v;
+
+                let distance = instance.world_position.0.powf(2.0) + instance.world_position.1.powf(2.0);
+
+                if distance > (2.0 + rng.gen_range(0..5) as f32) {
+                    instance.world_position.0 = 0.0;
+                    instance.world_position.1 = 0.0;
+                }
 
                 angle += d_angle;
             }
