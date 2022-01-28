@@ -39,7 +39,7 @@ fn main() {
         height: 900,
     });
 
-    let image = image::load(Cursor::new(&include_bytes!("./circle_05.png")),
+    let image = image::load(Cursor::new(&include_bytes!("../assets/particle.png")),
                             image::ImageFormat::Png).unwrap().to_rgba8();
     let image_dimensions = image.dimensions();
     let image = glium::texture::RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
@@ -82,7 +82,7 @@ fn main() {
 
     let program = glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None).unwrap();
 
-    let num_particles = 400000;
+    let num_particles = 40000;
 
     let mut rng = rand::thread_rng();
     let mut per_instance = {
@@ -95,7 +95,7 @@ fn main() {
         implement_vertex!(Attr, world_position, color);
 
         let data = (0..num_particles).map(|_| {
-            let color: (f32, f32, f32, f32) = match rng.gen_range(1..7) {
+            let color: (f32, f32, f32, f32) = match rng.gen_range(1..=6) {
                 1 => (252.0/255.0, 215.0/255.0, 3.0/255.0, 1.0),
                 2 => (235.0/255.0, 64.0/255.0, 52.0/255.0, 1.0),
                 3 => (235.0/255.0, 198.0/255.0, 52.0/255.0, 1.0),
@@ -116,6 +116,31 @@ fn main() {
 
     let mut rng = rand::thread_rng();
     let velocity = per_instance.map().iter().map(|_| 0.5 + rng.gen_range(1..3) as f32).collect::<Vec<_>>();
+
+    let particles_blend_mode = {
+        use glium::{Blend, BlendingFunction, LinearBlendingFactor};
+
+        Blend {
+            color: BlendingFunction::Addition {
+                source: LinearBlendingFactor::One,
+                destination: LinearBlendingFactor::One,
+            },
+            alpha: BlendingFunction::Addition {
+                source: LinearBlendingFactor::One,
+                destination: LinearBlendingFactor::One,
+            },
+            constant_value: (0.0, 0.0, 0.0, 0.0)
+        }
+    };
+
+    let particles_draw_params = glium::DrawParameters {
+        blend: particles_blend_mode,
+        .. Default::default()
+    };
+
+    let uniforms = uniform! {
+        tex: texture,
+    };
 
     event_loop.run(move |event, _, control_flow| {
         match event {
@@ -167,40 +192,12 @@ fn main() {
         let mut target = display.draw();
         target.clear_color(0.0, 0.0, 0.0, 1.0);
 
-        let blend = {
-            use glium::Blend;
-            use glium::BlendingFunction;
-            use glium::LinearBlendingFactor;
-
-            Blend {
-                color: BlendingFunction::Addition {
-                    source: LinearBlendingFactor::One,
-                    destination: LinearBlendingFactor::One,
-                },
-                alpha: BlendingFunction::Addition {
-                    source: LinearBlendingFactor::One,
-                    destination: LinearBlendingFactor::One,
-                },
-                constant_value: (0.0, 0.0, 0.0, 0.0)
-            }
-        };
-
-
-        let params = glium::DrawParameters {
-            blend,
-            .. Default::default()
-        };
-
-        let uniforms = uniform! {
-            tex: &texture,
-        };
-
         target.draw(
             (&vertex_buffer, per_instance.per_instance().unwrap()),
             &indices,
             &program,
             &uniforms,
-            &params
+            &particles_draw_params
         ).unwrap();
         target.finish().unwrap();
     });
