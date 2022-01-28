@@ -1,7 +1,12 @@
 ### Particle Generator in Rust & OpenGL
 Felt like playing around with instanced rendering and some cool blending options.
 
-![Particles radiating in multiple colors](./particles_screenshot.png)
+<details>
+<summary>Demo</summary>
+
+![Particles radiating in multiple colors](./demo.webp)
+
+</details>
 
 ### Building
 

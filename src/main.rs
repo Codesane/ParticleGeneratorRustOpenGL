@@ -4,8 +4,9 @@
 extern crate glium;
 
 use std::io::Cursor;
-use glium::glutin::dpi::LogicalSize;
+use std::thread;
 
+use glium::glutin::dpi::LogicalSize;
 use rand::Rng;
 
 #[derive(Copy, Clone)]
